@@ -31,7 +31,7 @@ class BurpExtender(IBurpExtender, IHttpListener):
                 #// since we called .analyzeRequest(messgaeInfo) we are logging only request
                 #// I guess to log respone ther must be method sth similar like .analyzeResponse(messageInfo)
                 requestInfo = self._helpers.analyzeRequest(messageInfo)
-                method = requestInfor.getMethod()
+                method = requestInfo.getMethod()
                 URL = requestInfo.getUrl()
                 host = URL.getHost()
 
