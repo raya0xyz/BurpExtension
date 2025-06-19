@@ -37,56 +37,75 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
     # This has not been used
     def long_header():
-        # return headers= {
-        #     "Random-Header": generate_cyclic_pattern(15000),
-        #     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        #     "Accept-Encoding": "gzip,deflate,br",
-        #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-        #     }
         return header
 
-
-    ## Right-Click gareako bela ma, it will display extenion `X`.
+    # TO DISPLAY THE NAME OF EXTENISON
     def createMenuItems(self, invocation):
         menu = ArrayList()
         menu.add(JMenuItem("X", actionPerformed=lambda e: self.handle_action(invocation)))
         return menu
 
-    def handle_action(self, invocation):
+    # TAKES IHttpRequestRequest AND OUTPUT HUMAN READABLE OUTPUT
+    def logRequest(self, messageInfo):
+        request_info = self._helpers.analyzeRequest(messageInfo)
+        headers = request_info.getHeaders()
+        body = messageInfo.getRequest()[request_info.getBodyOffset():].tostring()
+        return '\n'.join(headers) + '\n\n' + body
+    
+    # TAKES byte array AND RETURN HUMAN READABLE OUTPUT
+    def logRequestFromBytes(self, byte_array):
+        request_info = self._helpers.analyzeRequest(byte_array)
+        headers = request_info.getHeaders()
+        body = byte_array[request_info.getBodyOffset():].tostring()
+        return '\n'.join(headers) + '\n\n' + body
+    
+    # TAKES IHttpRequestResponse AND OUTPUT HUMAN READABLE RESPONSE 
+    def logResponse(self, messageInfo):
+        response_info = self._helpers.analyzeResponse(messageInfo.getResponse())
+        headers = response_info.getHeaders()
+        body = messageInfo.getResponse()[response_info.getBodyOffset():].tostring()
+        return '\n'.join(headers) + '\n\n' + body
 
+    # HANDLE_ACTION CHECK IF IT HAS INVOKED
+    def handle_action(self, invocation):
         def worker():
             try:
-                # Selects the Request
+                # ONCE INVOKED GET MESSAGE FROM INVOCATION AND SAVE IT TO SELECTED_MESSAGE
                 selected_messages = invocation.getSelectedMessages()
                 if not selected_messages:
-                    return # if none selected return nth.
-
+                    return # IF NO MESSAGE IS SELECTED THEN REURN NTH
                 # From selected_message
                 for message in selected_messages:
                     request = message.getRequest() # Pull request
-                    # Get Helper for `message` from `selected_message`. 
                     request_info = self._helpers.analyzeRequest(message) 
                     headers = list(request_info.getHeaders())
-
-                    # Generating Random Cyclic Pattern
-                    headers.append("Random-Header: "+ generate_cyclic_pattern(50)) # <--------------- Update later
-                    # Since I will be working with GET message this might not be needed.
-                    body = request[request_info.getBodyOffset():]  # <------------------
-                    new_request = self._helpers.buildHttpMessage(headers, body) # <------ Since working with GET request this body might just be empty
-                    self._stdout.println(body)
-                    self._stdout.println(new_request)
-                    # Send modified request
-                    http_service = message.getHttpService() # Just used to get HTTP service.
-                    # Makes the request with appropriate Service.
+                    headers.append("Random-Header: "+ generate_cyclic_pattern(50)) 
+                    body = request[request_info.getBodyOffset():]  
+                    new_request = self._helpers.buildHttpMessage(headers, body)
+                    log_req = self.logRequestFromBytes(new_request)
+                    self._stdout.println(log_req)
+                    """
+                    1. GET MESSAGE REQUEST                             (request)
+                    2. GET HELPER TO WORK WITH REQUEST                 (request_info)
+                    3. EXTRACT HEADERS
+                    4. APPEND THE LONG HEADER
+                    5. FORM REQUEST GET CONTENT OF REQUEST BODY 
+                    6. CRAFT REQUEST                                   (request.appen + body)
+                    7. LOG
+                    """
+                    http_service = message.getHttpService()
                     response = self._callbacks.makeHttpRequest(http_service, new_request)
-                    self._stdout.println(response)
+                    log_resp = self.logResponse(response)
+                    self._stdout.println(log_resp)
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                    """
+                    1.0 GET's HTTP SERVICE TYPE                 (http_service)
+                    2.1 FIRST CRAFT REQUEST WITH SERVICE AND MODIFIED REQUEST && MAKES REQUEST
+                    2.2 RESPOSNE IS THEN STORED                 (response)
+                    3.0 LOG
+                    """
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                    # Parse response
-                    # resp_info = self._helpers.analyzeResponse(response.getResponse())
-                    # status_code = resp_info.getStatusCode()
-                    # self._stdout.println("[+] Got response: HTTP %d for %s" % (status_code, request_info.getUrl()))
-    # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
             except Exception as e:
                 self._stderr.println("Error in thread: %s" % str(e))
 
