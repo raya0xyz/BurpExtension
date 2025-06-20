@@ -6,6 +6,8 @@ from java.io import PrintWriter
 from javax.swing import JMenuItem
 from java.util import List, ArrayList
 from threading import Thread
+from java.net import URL
+
 
 
 def generate_cyclic_pattern(length):
@@ -34,10 +36,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
         self._stdout.println("[*] Extension Loaded")
         self._stdout.println("_______________________________________________")
-
-    # This has not been used
-    def long_header():
-        return header
 
     # TO DISPLAY THE NAME OF EXTENISON
     def createMenuItems(self, invocation):
@@ -78,43 +76,57 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                 for message in selected_messages:
                     request = message.getRequest() # Pull request
                     request_info = self._helpers.analyzeRequest(message) 
-                    headers = list(request_info.getHeaders())
-                    headers.append("Random-Header: "+ generate_cyclic_pattern(50)) 
-                    body = request[request_info.getBodyOffset():]  
-                    new_request = self._helpers.buildHttpMessage(headers, body)
-                    log_req = self.logRequestFromBytes(new_request)
-                    self._stdout.println(log_req)
-                    """
-                    1. GET MESSAGE REQUEST                             (request)
-                    2. GET HELPER TO WORK WITH REQUEST                 (request_info)
-                    3. EXTRACT HEADERS
-                    4. APPEND THE LONG HEADER
-                    5. FORM REQUEST GET CONTENT OF REQUEST BODY 
-                    6. CRAFT REQUEST                                   (request.appen + body)
-                    7. LOG
-                    """
-                    http_service = message.getHttpService()
-                    response = self._callbacks.makeHttpRequest(http_service, new_request)
-                    log_resp = self.logResponse(response)
-                    self._stdout.println(log_resp)
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                    """
-                    1.0 GET's HTTP SERVICE TYPE                 (http_service)
-                    2.1 FIRST CRAFT REQUEST WITH SERVICE AND MODIFIED REQUEST && MAKES REQUEST
-                    2.2 RESPOSNE IS THEN STORED                 (response)
-                    3.0 LOG
-                    """
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+                    urlCheck = request_info.getUrl()
+                    hostCheck = urlCheck.getHost()
+                    protocolCheck = urlCheck.getProtocol()
+                    protCheck = urlCheck.getPort()
+                    # Building URL
+                    checkURL = "%s://%s:%d/un1gg4.js" % (protocolCheck, hostCheck, protCheck)
+                    self._stdout.println("[-] Checking response of | %s" %checkURL)
+
+                    # Build GET request 
+                    newCheckReq = self._helpers.buildHttpRequest(URL(checkURL))
+                    httpService = self._helpers.buildHttpService(hostCheck, protCheck, protocolCheck=="htttps")
+                    
+                    # Resposne Check
+                    respCheck = self._callbacks.makeHttpRequest(httpService, newCheckReq)
+                    respInfoCheck = self._helpers.analyzeResponse(respCheck.getResponse())
+                    statusCheck = respInfoCheck.getStatusCode()
+
+
+                    if statusCheck == 404:
+                        self._stdout.println("[+]True (Got 404)")
+                        headers = list(request_info.getHeaders())
+                        headers.append("Random-Header: "+ generate_cyclic_pattern(50)) 
+                        body = request[request_info.getBodyOffset():]  
+                        new_request = self._helpers.buildHttpMessage(headers, body)
+                        log_req = self.logRequestFromBytes(new_request)
+                        self._stdout.println(log_req)
+                        """
+                        1. GET MESSAGE REQUEST                             (request)
+                        2. GET HELPER TO WORK WITH REQUEST                 (request_info)
+                        3. EXTRACT HEADERS
+                        4. APPEND THE LONG HEADER
+                        5. FORM REQUEST GET CONTENT OF REQUEST BODY 
+                        6. CRAFT REQUEST                                   (request.appen + body)
+                        7. LOG
+                        """
+                        http_service = message.getHttpService()
+                        response = self._callbacks.makeHttpRequest(http_service, new_request)
+                        log_resp = self.logResponse(response)
+                        self._stdout.println(log_resp)
+                        """
+                        1.0 GET's HTTP SERVICE TYPE                 (http_service)
+                        2.1 FIRST CRAFT REQUEST WITH SERVICE AND MODIFIED REQUEST && MAKES REQUEST
+                        2.2 RESPOSNE IS THEN STORED                 (response)
+                        3.0 LOG
+                        """
+                    else:
+                        self._stdout.println("False (Got %d)" % statusCheck)
+                        break
 
             except Exception as e:
                 self._stderr.println("Error in thread: %s" % str(e))
 
         Thread(target=worker).start()
-
-    # def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-    #     try:
-    #         if messageIsRequest:
-    #             requestInfo = self._helpers.analyzeRequest(messageInfo)
-    #             self._stdout.println("[Resuest] Host: %s | Method: %s | URl: %s " %(host, method, URL)) 
-    #     except Exception as e:
-    #         self._stderr.println("Error: %s " % str(e))
